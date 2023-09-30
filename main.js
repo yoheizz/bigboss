@@ -1,123 +1,116 @@
-// HTMLからキャンバス要素を取得
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-const C_W = canvas.width = 600;
-const C_H = canvas.height = 800;
+const CANVAS_W = canvas.width = 800;
+const CANVAS_H = canvas.height = 800;
 
 const rand = (min, max) => {
     return Math.floor(Math.random() * (max - min + 1) + min);
 };
 
-class Circle {
-    constructor(size, x, y, vx, vy) {
-        this.size = size;
-        this.x = x;
-        this.y = y;
-        this.vx = vx;
-        this.vy = vy;
-        this.gravity = 0.5; // 重力の強さ
-        this.bounce = -0.6; // 跳ね返り係数
+class Player{
+    constructor(){
+        this.x = 0;
+        this.y = 0;
+        this.width = 40;
+        this.height = 40;
+        this.vx = 0;
+        this.vy = 0;
+        this.vg = 0.5;
+        this.jumpStrength = -15;
+        this.isJumping = false;
+        this.speed = 8;
     }
-    draw() {
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx.strokeStyle = "black";
-        ctx.stroke();
-        ctx.closePath();
+    draw(){
+        ctx.strokeStyle = 'black';
+        ctx.fillStyle = 'red';
+        ctx.strokeRect(this.x, this.y, this.width, this.height);
+        ctx.fillRect(this.x + 10, this.y + 5, this.width / 5, this.height / 5);
+        ctx.fillRect(this.x + this.width - 15, this.y + 5, this.width / 5, this.height / 5);
+        ctx.fillRect(this.x + 10, this.y + this.height - 15, this.width - 20, this.height / 5);
     }
-    update() {
-        this.vy += this.gravity; // 重力を適用
+    update(){
+        // 落下処理
+        this.vy += this.vg;
         this.x += this.vx;
         this.y += this.vy;
-
-        // キャンバスの境界に衝突したら跳ね返る
-        this.checkBoundaryCollision();
-    }
-    
-    checkBoundaryCollision() {
-        if (this.x - this.size < 0 || this.x + this.size > C_W) {
-            this.vx *= this.bounce;
+        //キー操作
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'ArrowLeft') {
+            this.vx = -this.speed;
+            } else if (event.key === 'ArrowRight') {
+            this.vx = this.speed;
+            } else if (event.key === 'ArrowUp' && !this.isJumping) {
+            this.vy = this.jumpStrength;
+            this.isJumping = true;
+            }
+        });
+        document.addEventListener('keyup', (event) => {
+            if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+            this.vx = 0;
+            }
+        });
+    }    
+    checkCollision(box){
+            if(
+                this.x + this.width > box.x &&
+                this.x < box.x + box.width &&
+                this.y + this.height > box.y &&
+                this.y < box.y + box.height &&
+                this.vy >= 0
+            ){  
+                this.y = box.y - this.height;
+                this.vy = 0;
+                this.isJumping = false;
+            }
         }
-        if (this.y - this.size < 0 || this.y + this.size > C_H) {
-            this.vy *= this.bounce;
-            this.y = Math.min(Math.max(this.size, this.y), C_H - this.size); // キャンバス内にクリップ
-        }
+}
+
+class Box {
+    constructor(x,y,width,height) {
+        this.width = width;
+        this.height = height;        
+        this.x = x;
+        this.y = y-this.height;
+        this.vx = 1;
+        this.vy = 1;
     }
-
-    // 円同士の当たり判定
-    checkCircleCollision(otherCircle) {
-        const dx = this.x - otherCircle.x;
-        const dy = this.y - otherCircle.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-
-        return distance < this.size + otherCircle.size;
+    draw() {
+        ctx.fillStyle = "brown";
+        ctx.fillRect(this.x,this.y,this.width,this.height);
     }
-
-    // 円同士の衝突処理
-    handleCircleCollision(otherCircle) {
-        // 衝突時に速度を反転させる
-        this.vx *= this.bounce;
-        this.vy *= this.bounce;
-        otherCircle.vx *= this.bounce;
-        otherCircle.vy *= this.bounce;
-
-        // 円同士が重なった際に、少しずつ移動して重なりを解消
-        const dx = this.x - otherCircle.x;
-        const dy = this.y - otherCircle.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        const overlap = (this.size + otherCircle.size) - distance;
-        const moveX = (dx / distance) * overlap * 0.5;
-        const moveY = (dy / distance) * overlap * 0.5;
-
-        this.x += moveX;
-        this.y += moveY;
-        otherCircle.x -= moveX;
-        otherCircle.y -= moveY;
+    update() {
+        this.x += Math.sin(this.vx) * 2;
+        this.vx += 0.01;
+        this.y += Math.cos(this.vy) * 1;
+        this.vy += 0.01;
+        
     }
 }
 
-// ゲームオブジェクトの壁に対する当たり判定と衝突処理
-function checkWallCollision(object) {
-    if (object.x - object.size < 0 || object.x + object.size > C_W) {
-        object.vx *= object.bounce;
-    }
-    if (object.y - object.size < 0 || object.y + object.size > C_H) {
-        object.vy *= object.bounce;
-        object.y = Math.min(Math.max(object.size, object.y), C_H - object.size); // キャンバス内にクリップ
-    }
-}
 
-let circles = [];
-for (let i = 0; i < 1000; i++) {
-    const circle = new Circle(rand(1, 20), rand(20, C_W - 20), rand(20, C_H - 20), rand(-5, 5), rand(-5, 5));
-    circles.push(circle);
-    circle.draw();
-}
+const player = new Player();
+const box1 = new Box(0,CANVAS_H/2,400,20);
+const box2 = new Box(500,CANVAS_H/2-100,200,20);
+
+
+
 
 // ゲームループ
 function gameLoop() {
-    ctx.clearRect(0, 0, C_W, C_H); // キャンバスをクリア
+    ctx.clearRect(0, 0, CANVAS_W,CANVAS_H);
+    player.draw();
+    player.update();
+    player.checkCollision(box1);
+    player.checkCollision(box2);
 
-    for (let i = 0; i < circles.length; i++) {
-        const circle = circles[i];
-        circle.update(); // 円の位置を更新
-        circle.draw(); // 円を描画
+    box1.draw();
+    box2.draw();
+    box1.update();
+    box2.update();
 
-        // 円同士の当たり判定
-        for (let j = i + 1; j < circles.length; j++) {
-            if (circle.checkCircleCollision(circles[j])) {
-                // 円同士の衝突処理をここに記述
-                circle.handleCircleCollision(circles[j]);
-            }
-        }
-
-        // ゲームオブジェクトと壁の当たり判定
-        checkWallCollision(circle);
-    }
-
-    requestAnimationFrame(gameLoop); // 次のフレームを要求
+    requestAnimationFrame(gameLoop);
 }
 
-// 最初のフレームを開始
+
 requestAnimationFrame(gameLoop);

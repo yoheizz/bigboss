@@ -1,4 +1,6 @@
-/* CSS スタイルをここに追加 */
+body{
+    text-align: center;
+}
 canvas {
     border: 1px solid black;
     max-width: 400px;
